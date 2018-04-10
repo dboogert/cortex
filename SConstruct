@@ -131,7 +131,7 @@ o.Add(
 o.Add(
 	"TBB_LIB_SUFFIX",
 	"The suffix appended to the names of the tbb libraries. You can modify this "
-	"to link against libraries installed with non-defalt names.",
+	"to link against libraries installed with non-default names.",
 	"",
 )
 

@@ -294,7 +294,6 @@ class TestEmptyContainerOptimisation( unittest.TestCase ) :
 		self.assertEqual( c1, c2 )
 
 	def tearDown( self ) :
-
 		if os.path.isfile( "test/emptyContainerOptimisation.cob" ) :
 			os.remove( "test/emptyContainerOptimisation.cob" )
 

@@ -385,8 +385,6 @@ class TestFileIndexedIO(unittest.TestCase):
 
 			self.assertEqual( len(entryNames), len(dataPresent) )
 
-
-
 	def testReadWrite(self):
 		"""Test FileIndexedIO read/write(generic)"""
 
