@@ -174,6 +174,12 @@ class IECORE_API StreamIndexedIO : public IndexedIO
 
 				IndexedIO::OpenMode openMode() const;
 
+				/// attempt to read 'size' bytes into 'destination' reading 'offset' bytes from
+				/// the start of the file. If a file descriptor has not been set using openFileDescriptor
+				/// then this will return false giving you the opportunity to read using seekg / read functions
+				/// note this function doesn't require the file mutex
+				bool descriptorRead(void* destination, size_t size, size_t offset) const;
+
 				// returns a read lock, when thread-safety is required.
 				typedef tbb::recursive_mutex Mutex;
 				typedef Mutex::scoped_lock MutexLock;
@@ -194,12 +200,19 @@ class IECORE_API StreamIndexedIO : public IndexedIO
 				// This function allocates and if in read-mode also reads the Index of the file.
 				void setStream( std::iostream *stream, bool emptyFile );
 
+				/// initialise a posix file descriptor to use for non locking IO
+				/// todo: need to consider non linux platforms (or boost abstraction 0)
+				void openFileDescriptor( const std::string& fileName );
+
 				IndexedIO::OpenMode m_openmode;
 				std::iostream *m_stream;
 				Mutex m_mutex;
 
 				unsigned long m_ioBufferLen;
 				char *m_ioBuffer;
+
+				/// optional file descriptor to enable lock free file read access
+				int m_fd;
 		};
 		IE_CORE_DECLAREPTR( StreamFile );
 

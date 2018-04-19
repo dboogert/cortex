@@ -107,6 +107,7 @@ FileIndexedIO::StreamFile::StreamFile( const std::string &filename, IndexedIO::O
 			try
 			{
 				setStream( f, false );
+				openFileDescriptor( filename );
 			}
 			catch ( Exception &e )
 			{

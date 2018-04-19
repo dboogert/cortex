@@ -62,6 +62,8 @@
 #include <map>
 #include <set>
 
+#include <fcntl.h>
+#include <unistd.h>
 #include <stdint.h>
 
 #define HARDLINK				127
@@ -2220,7 +2222,7 @@ void StreamIndexedIO::Index::lockDirectory( MutexLock &lock, const DirectoryNode
 //
 ///////////////////////////////////////////////
 
-StreamIndexedIO::StreamFile::StreamFile( IndexedIO::OpenMode mode ) : m_openmode( mode ), m_stream( nullptr ), m_ioBufferLen( 0 ), m_ioBuffer( nullptr )
+StreamIndexedIO::StreamFile::StreamFile( IndexedIO::OpenMode mode ) : m_openmode( mode ), m_stream( nullptr ), m_ioBufferLen( 0 ), m_ioBuffer( nullptr ), m_fd(-1)
 {
 	IndexedIO::validateOpenMode(m_openmode);
 }
@@ -2234,6 +2236,11 @@ StreamIndexedIO::StreamFile::~StreamFile()
 	if ( m_ioBuffer )
 	{
 		delete [] m_ioBuffer;
+	}
+
+	if (m_fd >= 0)
+	{
+		::close(m_fd);
 	}
 }
 
@@ -2249,6 +2256,11 @@ void StreamIndexedIO::StreamFile::setStream( std::iostream *stream, bool emptyFi
 	{
 		m_openmode = (m_openmode ^ IndexedIO::Append) | IndexedIO::Write;
 	}
+}
+
+void StreamIndexedIO::StreamFile::openFileDescriptor( const std::string& fileName )
+{
+	m_fd = ::open( fileName.c_str(), O_RDONLY );
 }
 
 char *StreamIndexedIO::StreamFile::ioBuffer( unsigned long size )
@@ -2270,6 +2282,18 @@ char *StreamIndexedIO::StreamFile::ioBuffer( unsigned long size )
 StreamIndexedIO::StreamFile::Mutex & StreamIndexedIO::StreamFile::mutex()
 {
 	return m_mutex;
+}
+
+bool StreamIndexedIO::StreamFile::descriptorRead(void* destination, size_t size, size_t offset) const
+{
+	ssize_t readResult = pread(m_fd, destination, size, offset);
+
+	if (readResult < 0)
+	{
+		return false;
+	}
+
+	return (size_t) readResult == size;
 }
 
 void StreamIndexedIO::StreamFile::flush( size_t endPosition )
@@ -2714,27 +2738,20 @@ void StreamIndexedIO::read(const IndexedIO::EntryID &name, InternedString *&x, u
 	Imf::Int64 *ids = new Imf::Int64[arrayLength];
 
 	StreamIndexedIO::StreamFile &f = streamFile();
+	// todo reduce calls to malloc
+	char *buffer = new char[dataSize];
+
+	if (!f.descriptorRead( &buffer, dataSize, dataOffset))
 	{
 		StreamFile::MutexLock lock( f.mutex() );
 		f.seekg( dataOffset, std::ios::beg );
-
-#ifdef IE_CORE_LITTLE_ENDIAN
-		char *buffer = new char[dataSize];
-		// raw read
 		f.read( buffer, dataSize );
-		DecompressedContext decompressedContext( buffer, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount() );
-		memcpy( ids, decompressedContext.data(), decompressedSize );
-		delete[] buffer;
 	}
-#else
-		char *data = f.ioBuffer(dataSize);
-		f.read( data, dataSize );
-		DecompressedContext decompressedContext( data, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount(), ids );
-		memcpy( ids, decompressedContext.data(), decompressedSize );
-		delete[] buffer;
-	}
-	IndexedIO::DataFlattenTraits<Imf::Int64*>::unflatten( data, ids, arrayLength );
-#endif
+	DecompressedContext decompressedContext( buffer, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount() );
+	memcpy( ids, decompressedContext.data(), decompressedSize );
+	// todo make safe if there are exceptions
+	delete[] buffer;
+
 
 	const StringCache &stringCache = m_node->m_idx->stringCache();
 	if (!x)
@@ -2853,16 +2870,17 @@ void StreamIndexedIO::rawRead(const IndexedIO::EntryID &name, T *&x, unsigned lo
 	}
 
 	StreamIndexedIO::StreamFile &f = streamFile();
+	char *buffer = new char[dataSize];
+	if ( !f.descriptorRead( buffer, dataSize, dataOffset ) )
 	{
 		StreamFile::MutexLock lock( f.mutex() );
 
-		char *buffer = new char[dataSize];
 		f.seekg( dataOffset, std::ios::beg );
 		f.read( buffer, dataSize );
-		DecompressedContext decompressedContext( buffer, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount());
-		memcpy( x, decompressedContext.data(), decompressedSize );
-		delete[] buffer;
 	}
+	DecompressedContext decompressedContext( buffer, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount());
+	memcpy( x, decompressedContext.data(), decompressedSize );
+	delete[] buffer;
 }
 
 template<typename T>
@@ -2879,14 +2897,20 @@ void StreamIndexedIO::read(const IndexedIO::EntryID &name, T &x) const
 	}
 
 	StreamIndexedIO::StreamFile &f = streamFile();
+
+	char buffer[512];
+	if (dataSize >= 512 || !f.descriptorRead( buffer, dataSize, dataOffset))
 	{
 		StreamFile::MutexLock lock( f.mutex() );
 		char *data = f.ioBuffer(dataSize);
 		f.seekg( dataOffset, std::ios::beg );
 		f.read( data, dataSize );
 
-		DecompressedContext decompressedContext( data, dataSize, decompressedSize, m_node->m_idx->decompressionThreadCount() );
-		IndexedIO::DataFlattenTraits<T>::unflatten( decompressedContext.data(), x );
+		IndexedIO::DataFlattenTraits<T>::unflatten( data, x );
+	}
+	else
+	{
+		IndexedIO::DataFlattenTraits<T>::unflatten( buffer, x );
 	}
 }
 
@@ -2908,7 +2932,10 @@ void StreamIndexedIO::rawRead(const IndexedIO::EntryID &name, T &x) const
 		throw Exception( "Simple type can't be compressed" );
 	}
 
+
 	StreamIndexedIO::StreamFile &f = streamFile();
+
+	if (!f.descriptorRead( &x, dataSize, dataOffset))
 	{
 		StreamFile::MutexLock lock( f.mutex() );
 		f.seekg( dataOffset, std::ios::beg );
