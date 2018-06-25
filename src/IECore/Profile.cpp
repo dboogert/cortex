@@ -36,12 +36,16 @@
 
 #include "tbb/enumerable_thread_specific.h"
 
+#include "boost/container/small_vector.hpp"
+#include "boost/variant.hpp"
+
 #include <stack>
 #include <chrono>
 #include <iostream>
 #include <fstream>
 #include <thread>
 #include <ios>
+
 
 
 using namespace IECore;
@@ -58,10 +62,42 @@ namespace
 		{
 		}
 
+		void start()
+		{
+			m_start =  std::chrono::high_resolution_clock::now();
+		}
+
 		void end()
 		{
 			m_end = std::chrono::high_resolution_clock::now();
 		}
+
+
+		typedef boost::variant<IECore::InternedString, int, float> ArgValue;
+		struct KeyValue
+		{
+			KeyValue(const InternedString& key, float value)
+			{
+				_key = key;
+				_value = value;
+			}
+
+			KeyValue(const InternedString& key, int value)
+			{
+				_key = key;
+				_value = value;
+			}
+
+			KeyValue(const InternedString& key, const InternedString &value)
+			{
+				_key = key;
+				_value = value;
+			}
+			IECore::InternedString _key;
+			ArgValue _value;
+		};
+
+		boost::container::small_vector<KeyValue, 8> args;
 
 		std::chrono::high_resolution_clock::time_point m_start;
 		std::chrono::high_resolution_clock::time_point m_end;
@@ -99,12 +135,41 @@ void popRegion()
 	eventStack.pop();
 }
 
+IECORE_API void startRegion()
+{
+	EventStack &eventStack = g_threadEventStack.local();
+	eventStack.top().start();
+}
+
+void addArg( const IECore::InternedString &key, int value)
+{
+	EventStack &eventStack = g_threadEventStack.local();
+	eventStack.top().args.push_back( Event::KeyValue (key, value));
+
+}
+
+void addArg( const IECore::InternedString &key, float value)
+{
+	EventStack &eventStack = g_threadEventStack.local();
+	eventStack.top().args.push_back( Event::KeyValue (key, value));
+}
+
+void addArg( const IECore::InternedString &key, const IECore::InternedString& value)
+{
+	EventStack &eventStack = g_threadEventStack.local();
+	eventStack.top().args.push_back( Event::KeyValue (key, value));
+}
+
+
 void writeProfile( const std::string &fileName )
 {
 
 	std::ofstream f (fileName.c_str(), std::ios_base::out );
 
 	f << "{ \"traceEvents\": [";
+
+
+	bool first = true;
 
 	for (ThreadSpecificEventVector::const_iterator i = g_threadEvents.begin();
 		 i != g_threadEvents.end(); ++i)
@@ -113,11 +178,41 @@ void writeProfile( const std::string &fileName )
 
 		for (const auto &e : events)
 		{
+
+			if ( !first )
+			{
+				f << ", ";
+			}
+
+			f << std::endl;
+
 			f << "{ \"pid\":1 , \"ph\":\"X\", \"tid\": " << e.m_id << ", "
 					  << "\"ts\": " << std::chrono::duration_cast<std::chrono::microseconds>(e.m_start.time_since_epoch()).count() << ","
 					  << "\"dur\": " << std::chrono::duration_cast<std::chrono::microseconds>((e.m_end - e.m_start)).count() << ", "
-					  << "\"name\": \"" << e.m_name << "\"}," << std::endl;
+					 << "\"args\": {";
+
+					bool firstArg = true;
+		 			for (const auto &a : e.args)
+					{
+						if (!firstArg)
+						{
+							f << ", ";
+						}
+
+						if (const IECore::InternedString *p = boost::get<IECore::InternedString>(&a._value))
+						{
+							f << "\"" << a._key.string() << "\" : \"" << p->string() << "\"";
+							firstArg = false;
+						}
+
+
+					}
+		  			 f << "},"
+					  << "\"name\": \"" << e.m_name << "\"}";
+
+			first = false;
 		}
+
 
 	}
 

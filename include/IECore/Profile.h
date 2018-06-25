@@ -47,6 +47,11 @@ namespace Profile
 {
 	IECORE_API void pushRegion( const IECore::InternedString &label, int id  );
 	IECORE_API void popRegion();
+	IECORE_API void startRegion();
+
+	IECORE_API void addArg( const IECore::InternedString &key, int value);
+	IECORE_API void addArg( const IECore::InternedString &key, float value);
+	IECORE_API void addArg( const IECore::InternedString &key, const IECore::InternedString& value);
 
 	IECORE_API void writeProfile( const std::string &fileName );
 
