@@ -32,14 +32,14 @@ add_definitions( -DIE_CORE_MAJORVERSION=${IECORE_MAJOR_VERSION}
 
 option( WITH_TESTS "Compile tests" OFF )
 option( WITH_IECORE_PYTHON "Compile IECorePython" ON )
-option( WITH_IECORE_GL "Compile IECoreGL" OFF )
-option( WITH_IECORE_IMAGE "Compile IECoreImage" OFF )
-option( WITH_IECORE_SCENE "Compile IECoreScene" OFF )
-option( WITH_IECORE_ALEMBIC "Compile IECoreAlembic" OFF )
-option( WITH_IECORE_VDB "Compile IECoreVDB" OFF)
+option( WITH_IECORE_GL "Compile IECoreGL" ON )
+option( WITH_IECORE_IMAGE "Compile IECoreImage" ON )
+option( WITH_IECORE_SCENE "Compile IECoreScene" ON )
+option( WITH_IECORE_ALEMBIC "Compile IECoreAlembic" ON )
+option( WITH_IECORE_VDB "Compile IECoreVDB" ON)
 option( WITH_IECORE_ARNOLD "Compile IECoreArnold" OFF )
 option( WITH_IECORE_APPLESEED "Compile IECoreAppleseed" OFF )
-option( WITH_IECORE_USD "Compile IECoreUSD" OFF )
+option( WITH_IECORE_USD "Compile IECoreUSD" ON )
 
 option( WITH_IECORE_HOUDINI "Compile IECoreHoudini" OFF )
 option( WITH_IECORE_MAYA "Compile IECoreMaya" OFF )
@@ -74,12 +74,12 @@ endif()
 if( "${CMAKE_BUILD_TYPE}" MATCHES "Debug" )
     add_definitions( -DDEBUG=1 -UNDEBUG )
     if( NOT WINDOWS )
-        add_definitions( -pipe -Wall -O0 -Wno-unused-local-typedefs)
+        add_definitions( -pipe -Wall -O0 -Wno-unused-local-typedefs -Wno-deprecated )
     endif()
 elseif ( "${CMAKE_BUILD_TYPE}" MATCHES "Release" )
     add_definitions( -DNDEBUG=1 -UDEBUG )
     if ( NOT WINDOWS )
-        add_definitions( -pipe -Wall -Werror -O3 -DNDEBUG -DBOOST_DISABLE_ASSERTS -Wno-unused-local-typedefs -Wno-strict-aliasing -Wno-maybe-uninitialized ) #-Wno-return-type )
+        add_definitions( -pipe -Wall -Werror -O3 -DNDEBUG -DBOOST_DISABLE_ASSERTS -Wno-unused-local-typedefs -Wno-strict-aliasing -Wno-maybe-uninitialized -Wno-deprecated) #-Wno-return-type )
     endif()
 endif()
 
@@ -89,7 +89,7 @@ if( ${WINDOWS} )
     set( PLATFORM_LIBS winmm.lib )
 endif()
 
-set( CORTEX_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../.. )
+
 #-******************************************************************************
 #-******************************************************************************
 # GLOBAL PACKAGE & INCLUDE/LINK DEPENDENCY
