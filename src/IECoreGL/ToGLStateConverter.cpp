@@ -173,6 +173,8 @@ const AttributeToStateMap &attributeToStateMap()
 		m["gl:smoothing:polygons"] = attributeToTypedState<PolygonSmoothingStateComponent>;
 		m["gl:surface"] = attributeToShaderState;
 		m["gl:depthTest"] = attributeToTypedState<DepthTestStateComponent>;
+		m["gl:volume:style"] = attributeToTypedState<VolumeTypeStateComponent>;
+		m["gl:volume:grid"] = attributeToTypedState<VolumeGridStateComponent>;
 	}
 	return m;
 }
