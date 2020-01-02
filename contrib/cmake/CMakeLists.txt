@@ -79,7 +79,7 @@ if( "${CMAKE_BUILD_TYPE}" MATCHES "Debug" )
 elseif ( "${CMAKE_BUILD_TYPE}" MATCHES "Release" )
     add_definitions( -DNDEBUG=1 -UDEBUG )
     if ( NOT WINDOWS )
-        add_definitions( -pipe -Wall -Werror -O3 -DNDEBUG -DBOOST_DISABLE_ASSERTS -Wno-unused-local-typedefs -Wno-strict-aliasing -Wno-maybe-uninitialized -Wno-deprecated -Wno-placement-new) #-Wno-return-type )
+        add_definitions( -pipe -Wall -O3 -DNDEBUG -DBOOST_DISABLE_ASSERTS  -Wno-unused-local-typedefs -Wno-deprecated -D_GLIBCXX_USE_CXX11_ABI=0)
     endif()
 endif()
 
